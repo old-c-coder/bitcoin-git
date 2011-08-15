@@ -1129,7 +1129,24 @@ bool CWallet::CreateTransaction(const vector<pair<CScript, int64> >& vecSend, CW
                     nFeeRet += nMoveToFee;
                 }
 
-                if (nChange > 0)
+                bool fUseChangeKey = (nChange > 0);
+                if (fUseChangeKey && GetBoolArg("-noprivacy"))
+                {
+                    // -noprivacy means send change back to one of our inputs.
+                    // Loop through inputs, and use the first plain-old-transaction
+                    // (never use escrow or other funky transactions):
+                    BOOST_FOREACH(PAIRTYPE(const CWalletTx*, unsigned int) pcoin, setCoins)
+                    {
+                        const CTxOut& prevTxOut = pcoin.first->vout[pcoin.second];
+                        if (prevTxOut.scriptPubKey.GetBitcoinAddress().IsValid())
+                        {
+                            wtxNew.vout.push_back(CTxOut(nChange, prevTxOut.scriptPubKey));
+                            fUseChangeKey = false;
+                            break;
+                        }
+                    }
+                }
+                if (fUseChangeKey)
                 {
                     // Note: We use a new key here to keep it from being obvious which side is the change.
                     //  The drawback is that by not reusing a previous key, the change may be lost if a
