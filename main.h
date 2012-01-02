@@ -19,6 +19,8 @@ static const unsigned int MAX_BLOCK_SIZE_GEN = MAX_BLOCK_SIZE/2;
 static const int MAX_BLOCK_SIGOPS = MAX_BLOCK_SIZE/50;
 static const int64 COIN = 100000000;
 static const int64 CENT = 1000000;
+static const int64 MIN_TX_FEE = 50000;
+static const int64 MIN_RELAY_TX_FEE = 10000;
 static const int64 MAX_MONEY = 21000000 * COIN;
 inline bool MoneyRange(int64 nValue) { return (nValue >= 0 && nValue <= MAX_MONEY); }
 static const int COINBASE_MATURITY = 100;
@@ -391,6 +393,7 @@ public:
 };
 
 
+typedef std::map<uint256, std::pair<CTxIndex, CTransaction> > MapPrevTx;
 
 
 //
@@ -489,26 +492,28 @@ public:
         return (vin.size() == 1 && vin[0].prevout.IsNull());
     }
 
-    int GetSigOpCount() const
-    {
-        int n = 0;
-        foreach(const CTxIn& txin, vin)
-            n += txin.scriptSig.GetSigOpCount();
-        foreach(const CTxOut& txout, vout)
-            n += txout.scriptPubKey.GetSigOpCount();
-        return n;
-    }
+    /** Check for standard transaction types
+        @param[in] mapInputsMap of previous transactions that have outputs we're spending
+        @return True if all inputs (scriptSigs) use only standard transaction forms
+        @see CTransaction::FetchInputs
+    */
+    bool AreInputsStandard(const MapPrevTx& mapInputs) const;
 
-    bool IsStandard() const
-    {
-        foreach(const CTxIn& txin, vin)
-            if (!txin.scriptSig.IsPushOnly())
-                return error("nonstandard txin: %s", txin.scriptSig.ToString().c_str());
-        foreach(const CTxOut& txout, vout)
-            if (!::IsStandard(txout.scriptPubKey))
-                return error("nonstandard txout: %s", txout.scriptPubKey.ToString().c_str());
-        return true;
-    }
+    /** Count ECDSA signature operations the old-fashioned (pre-0.6) way
+        @return number of sigops this transaction's outputs will produce when spent
+        @see CTransaction::FetchInputs
+    */
+    int GetLegacySigOpCount() const;
+
+    /** Count ECDSA signature operations in pay-to-script-hash inputs.
+        This is a better measure of how expensive it is to process this transaction.
+
+        @param[in] mapInputsMap of previous transactions that have outputs we're spending
+        @return maximum number of sigops required to validate this transaction's inputs
+        @see CTransaction::FetchInputs
+    */
+    int GetP2SHSigOpCount(const MapPrevTx& mapInputs) const;
+
 
     bool IsMine() const
     {
@@ -571,6 +576,41 @@ public:
                 throw runtime_error("CTransaction::GetValueOut() : value out of range");
         }
         return nValueOut;
+    }
+
+    bool IsStandard() const
+    {
+        foreach(const CTxIn& txin, vin)
+        {
+            // Biggest 'standard' txin is a 3-signature 3-of-3 CHECKMULTISIG
+            // pay-to-script-hash, which is 3 ~80-byte signatures, 3
+            // ~65-byte public keys, plus a few script ops.
+            if (txin.scriptSig.size() > 500)
+                return false;
+            if (!txin.scriptSig.IsPushOnly())
+                return error("nonstandard txin: %s", txin.scriptSig.ToString().c_str());
+        }
+        foreach(const CTxOut& txout, vout)
+            if (!::IsStandard(txout.scriptPubKey))
+                return error("nonstandard txout: %s", txout.scriptPubKey.ToString().c_str());
+        return true;
+    }
+
+    /** Amount of bitcoins coming in to this transaction
+        Note that lightweight clients may not know anything besides the hash of previous transactions,
+        so may not be able to calculate this.
+
+        @param[in] mapInputsMap of previous transactions that have outputs we're spending
+        @returnSum of value of all inputs (scriptSigs)
+        @see CTransaction::FetchInputs
+    */
+    int64 GetValueIn(const MapPrevTx& mapInputs) const;
+
+    static bool AllowFree(double dPriority)
+    {
+        // Large (in bytes) low-priority (new, small-coin) transactions
+        // need a fee.
+        return dPriority > COIN * 144 / 250;
     }
 
     int64 GetMinFee(unsigned int nBlockSize=1, bool fAllowFree=true) const
@@ -678,8 +718,34 @@ public:
     bool ReadFromDisk(CTxDB& txdb, COutPoint prevout);
     bool ReadFromDisk(COutPoint prevout);
     bool DisconnectInputs(CTxDB& txdb);
-    bool ConnectInputs(CTxDB& txdb, map<uint256, CTxIndex>& mapTestPool, CDiskTxPos posThisTx,
-                       CBlockIndex* pindexBlock, int64& nFees, bool fBlock, bool fMiner, int64 nMinFee=0);
+
+    /** Fetch from memory and/or disk. inputsRet keys are transaction hashes.
+
+        @param[in] txdbTransaction database
+        @param[in] mapTestPoolList of pending changes to the transaction index database
+        @param[in] fBlockTrue if being called to add a new best-block to the chain
+        @param[in] fMinerTrue if being called by CreateNewBlock
+        @param[out] inputsRetPointers to this transaction's inputs
+        @returnReturns true if all inputs are in txdb or mapTestPool
+    */
+    bool FetchInputs(CTxDB& txdb, const std::map<uint256, CTxIndex>& mapTestPool,
+                     bool fBlock, bool fMiner, MapPrevTx& inputsRet);
+
+    /** Sanity check previous transactions, then, if all checks succeed,
+        mark them as spent by this transaction.
+
+        @param[in] inputsPrevious transactions (from FetchInputs)
+        @param[out] mapTestPoolKeeps track of inputs that need to be updated on disk
+        @param[in] posThisTxPosition of this transaction on disk
+        @param[in] pindexBlock
+        @param[in] fBlock  true if called from ConnectBlock
+        @param[in] fMiner  true if called from CreateNewBlock
+        @param[in] fStrictPayToScriptHash  true if fully validating p2sh transactions
+        @return Returns true if all checks succeed
+    */
+    bool ConnectInputs(MapPrevTx inputs,
+                       std::map<uint256, CTxIndex>& mapTestPool, const CDiskTxPos& posThisTx,
+                       const CBlockIndex* pindexBlock, bool fBlock, bool fMiner, bool fStrictPayToScriptHash=true);
     bool ClientConnectInputs();
     bool CheckTransaction() const;
     bool AcceptToMemoryPool(CTxDB& txdb, bool fCheckInputs=true, bool* pfMissingInputs=NULL);
@@ -689,6 +755,7 @@ public:
         return AcceptToMemoryPool(txdb, fCheckInputs, pfMissingInputs);
     }
 protected:
+    const CTxOut& GetOutputFor(const CTxIn& input, const MapPrevTx& inputs) const;
     bool AddToMemoryPoolUnchecked();
 public:
     bool RemoveFromMemoryPool();
@@ -1104,14 +1171,6 @@ public:
     int64 GetBlockTime() const
     {
         return (int64)nTime;
-    }
-
-    int GetSigOpCount() const
-    {
-        int n = 0;
-        foreach(const CTransaction& tx, vtx)
-            n += tx.GetSigOpCount();
-        return n;
     }
 
 

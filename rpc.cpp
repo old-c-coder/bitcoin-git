@@ -1117,7 +1117,14 @@ Value getwork(const Array& params, bool fHelp)
 
         pblock->nTime = pdata->nTime;
         pblock->nNonce = pdata->nNonce;
-        pblock->vtx[0].vin[0].scriptSig = CScript() << pblock->nBits << CBigNum(nExtraNonce);
+
+        // Put "/P2SH/" in the coinbase to express support for the new "Pay to Script Hash"
+        // transaction type:
+        const char* pszP2SH = "/P2SH/";
+        pblock->vtx[0].vin[0].scriptSig = CScript() << pblock->nBits << CBigNum(nExtraNonce) <<
+            std::vector<unsigned char>(pszP2SH, pszP2SH+strlen(pszP2SH));
+        assert(pblock->vtx[0].vin[0].scriptSig.size() <= 100);
+
         pblock->hashMerkleRoot = pblock->BuildMerkleTree();
 
         return CheckWork(pblock, reservekey);
