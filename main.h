@@ -506,14 +506,14 @@ public:
     */
     int GetLegacySigOpCount() const;
 
-    /** Count ECDSA signature operations the new (0.6-and-later) way
+    /** Count ECDSA signature operations in pay-to-script-hash inputs.
         This is a better measure of how expensive it is to process this transaction.
 
         @param[in] mapInputsMap of previous transactions that have outputs we're spending
         @return maximum number of sigops required to validate this transaction's inputs
         @see CTransaction::FetchInputs
     */
-    int GetSigOpCount(const MapPrevTx& mapInputs) const;
+    int GetP2SHSigOpCount(const MapPrevTx& mapInputs) const;
 
 
     bool IsMine() const
@@ -739,13 +739,14 @@ public:
         @param[out] mapTestPoolKeeps track of inputs that need to be updated on disk
         @param[in] posThisTxPosition of this transaction on disk
         @param[in] pindexBlock
-        @param[in] fBlocktrue if called from ConnectBlock
-        @param[in] fMinertrue if called from CreateNewBlock
+        @param[in] fBlock  true if called from ConnectBlock
+        @param[in] fMiner  true if called from CreateNewBlock
+        @param[in] fStrictPayToScriptHash  true if fully validating p2sh transactions
         @return Returns true if all checks succeed
     */
     bool ConnectInputs(MapPrevTx inputs,
                        std::map<uint256, CTxIndex>& mapTestPool, const CDiskTxPos& posThisTx,
-                       const CBlockIndex* pindexBlock, bool fBlock, bool fMiner);
+                       const CBlockIndex* pindexBlock, bool fBlock, bool fMiner, bool fStrictPayToScriptHash=true);
     bool ClientConnectInputs();
     bool CheckTransaction() const;
     bool AcceptToMemoryPool(CTxDB& txdb, bool fCheckInputs=true, bool* pfMissingInputs=NULL);
