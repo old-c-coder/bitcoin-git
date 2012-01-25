@@ -108,7 +108,10 @@ CScript MakeCoinbaseWithAux(unsigned int nBits, unsigned int nExtraNonce, vector
     vchAuxWithHeader.insert(vchAuxWithHeader.end(), vchAux.begin(), vchAux.end());
 
     // Push OP_2 just in case we want versioning later
-    return CScript() << nBits << nExtraNonce << OP_2 << vchAuxWithHeader;
+    // Put "/P2SH/" in the coinbase to express support for the new "Pay to Script Hash"
+    // transaction type:
+    const char* pszP2SH = "/P2SH/";
+    return CScript() << nBits << nExtraNonce << std::vector<unsigned char>(pszP2SH, pszP2SH+strlen(pszP2SH)) << OP_2 << vchAuxWithHeader;
 }
 
 
