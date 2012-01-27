@@ -1178,6 +1178,8 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex)
                     return error("ConnectBlock() : too many sigops");
             }
 
+            nFees += tx.GetValueIn(mapInputs)-tx.GetValueOut();
+
             if (!tx.ConnectInputs(mapInputs, mapQueuedChanges, posThisTx, pindex, true, false, fStrictPayToScriptHash))
                 return false;
         }
