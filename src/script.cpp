@@ -1382,7 +1382,7 @@ bool ExtractHash160(const CScript& scriptPubKey, uint160& hash160Ret)
     if (!Solver(scriptPubKey, whichType, vSolutions))
         return false;
 
-    if (whichType != TX_PUBKEY)
+    if (whichType != TX_PUBKEYHASH)
         return false;
 
     hash160Ret = uint160(vSolutions[0]);
