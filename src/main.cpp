@@ -3051,8 +3051,8 @@ CBlock* CreateNewBlock(CReserveKey& reservekey)
             if (!tx.FetchInputs(txdb, mapTestPoolTmp, false, true, mapInputs))
                 continue;
 
-            int64 nFees = tx.GetValueIn(mapInputs)-tx.GetValueOut();
-            if (nFees < nMinFee)
+            int64 nTxFees = tx.GetValueIn(mapInputs)-tx.GetValueOut();
+            if (nTxFees < nMinFee)
                 continue;
 
             nTxSigOps += tx.GetP2SHSigOpCount(mapInputs);
@@ -3068,6 +3068,7 @@ CBlock* CreateNewBlock(CReserveKey& reservekey)
             pblock->vtx.push_back(tx);
             nBlockSize += nTxSize;
             nBlockSigOps += nTxSigOps;
+            nFees += nTxFees;
 
             // Add transactions that depend on this one to the priority queue
             uint256 hash = tx.GetHash();
