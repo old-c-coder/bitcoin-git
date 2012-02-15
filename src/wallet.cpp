@@ -1138,7 +1138,7 @@ bool CWallet::CreateTransaction(const vector<pair<CScript, int64> >& vecSend, CW
                     BOOST_FOREACH(PAIRTYPE(const CWalletTx*, unsigned int) pcoin, setCoins)
                     {
                         const CTxOut& prevTxOut = pcoin.first->vout[pcoin.second];
-                        if (prevTxOut.scriptPubKey.GetBitcoinAddress().IsValid())
+                        if (IsStandard(prevTxOut.scriptPubKey) && !prevTxOut.scriptPubKey.IsPayToScriptHash())
                         {
                             wtxNew.vout.push_back(CTxOut(nChange, prevTxOut.scriptPubKey));
                             fUseChangeKey = false;
