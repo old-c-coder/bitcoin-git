@@ -1544,11 +1544,12 @@ Value getworkaux(const Array& params, bool fHelp)
 
         // Get the aux merkle root from the coinbase
         CScript script = pblock->vtx[0].vin[0].scriptSig;
-        opcodetype opcode;
+        opcodetype opcode = OP_0;
         CScript::const_iterator pc = script.begin();
-        script.GetOp(pc, opcode);
-        script.GetOp(pc, opcode);
-        script.GetOp(pc, opcode);
+        script.GetOp(pc, opcode); // nBits
+        script.GetOp(pc, opcode); // extraNonce
+        script.GetOp(pc, opcode); // "/P2SH/"
+        script.GetOp(pc, opcode); // OP_2
         if (opcode != OP_2)
             throw runtime_error("invalid aux pow script");
         vector<unsigned char> vchAux;
@@ -1650,7 +1651,9 @@ Value getauxblock(const Array& params, bool fHelp)
             pblock->nNonce = 0;
 
             // Push OP_2 just in case we want versioning later
-            pblock->vtx[0].vin[0].scriptSig = CScript() << pblock->nBits << CBigNum(1) << OP_2;
+            const char* pszP2SH = "/P2SH/";
+            pblock->vtx[0].vin[0].scriptSig = CScript() << pblock->nBits << CBigNum(1) <<
+                std::vector<unsigned char>(pszP2SH, pszP2SH+strlen(pszP2SH)) << OP_2;
             pblock->hashMerkleRoot = pblock->BuildMerkleTree();
 
             // Sets the version
