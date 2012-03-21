@@ -1548,10 +1548,8 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex)
     if (!CheckBlock())
         return false;
 
-    // To avoid being on the short end of a block-chain split,
-    // don't do secondary validation of pay-to-script-hash transactions
-    // until blocks with timestamps after paytoscripthashtime:
-    int64 nEvalSwitchTime = GetArg("-paytoscripthashtime", 1331769600); // March 15, 2012
+    // P2SH didn't become active until Apr 1 2012 (Feb 15 on testnet)
+    int64 nEvalSwitchTime = fTestNet ? 1329264000 : 1333238400;
     bool fStrictPayToScriptHash = (pindex->nTime >= nEvalSwitchTime);
 
     //// issue here: it doesn't know the version
