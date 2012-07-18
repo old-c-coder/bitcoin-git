@@ -1130,9 +1130,9 @@ bool CWallet::CreateTransaction(const vector<pair<CScript, int64> >& vecSend, CW
                 }
 
                 bool fUseChangeKey = (nChange > 0);
-                if (fUseChangeKey && GetBoolArg("-noprivacy"))
+                if (fUseChangeKey && GetBoolArg("-privacy", true))
                 {
-                    // -noprivacy means send change back to one of our inputs.
+                    // -privacy=0 means send change back to one of our inputs.
                     // Loop through inputs, and use the first plain-old-transaction
                     // (never use escrow or other funky transactions):
                     BOOST_FOREACH(PAIRTYPE(const CWalletTx*, unsigned int) pcoin, setCoins)
