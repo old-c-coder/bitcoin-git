@@ -53,12 +53,12 @@ void WalletStack::removeAllWallets()
     mapWalletViews.clear();
 }
 
-bool WalletStack::handleURI(const QString &uri)
+bool WalletStack::handlePaymentRequest(const SendCoinsRecipient &recipient)
 {
     WalletView *walletView = (WalletView*)currentWidget();
     if (!walletView) return false;
 
-    return walletView->handleURI(uri);
+    return walletView->handlePaymentRequest(recipient);
 }
 
 void WalletStack::showOutOfSyncWarning(bool fShow)

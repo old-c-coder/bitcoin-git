@@ -21,6 +21,8 @@ CONFIG += thread
 OBJECTS_DIR = build
 MOC_DIR = build
 UI_DIR = build
+PROTO_DIR = build
+PROTO_PATH = src/qt
 
 # use: qmake "RELEASE=1"
 contains(RELEASE, 1) {
@@ -200,6 +202,7 @@ HEADERS += src/qt/bitcoingui.h \
     src/qt/askpassphrasedialog.h \
     src/protocol.h \
     src/qt/notificator.h \
+    src/qt/paymentrequestplus.h \
     src/qt/paymentserver.h \
     src/allocators.h \
     src/ui_interface.h \
@@ -273,6 +276,7 @@ SOURCES += src/qt/bitcoin.cpp \
     src/qt/askpassphrasedialog.cpp \
     src/protocol.cpp \
     src/qt/notificator.cpp \
+    src/qt/paymentrequestplus.cpp \
     src/qt/paymentserver.cpp \
     src/qt/rpcconsole.cpp \
     src/noui.cpp \
@@ -293,6 +297,9 @@ FORMS += src/qt/forms/sendcoinsdialog.ui \
     src/qt/forms/rpcconsole.ui \
     src/qt/forms/optionsdialog.ui
 
+PROTOS = src/qt/paymentrequest.proto
+include(share/qt/protobuf.pri)
+
 contains(USE_QRCODE, 1) {
 HEADERS += src/qt/qrcodedialog.h
 SOURCES += src/qt/qrcodedialog.cpp
@@ -300,13 +307,16 @@ FORMS += src/qt/forms/qrcodedialog.ui
 }
 
 contains(BITCOIN_QT_TEST, 1) {
-SOURCES += src/qt/test/test_main.cpp \
-    src/qt/test/uritests.cpp
-HEADERS += src/qt/test/uritests.h
-DEPENDPATH += src/qt/test
-QT += testlib
-TARGET = bitcoin-qt_test
-DEFINES += BITCOIN_QT_TEST
+  SOURCES += src/qt/test/test_main.cpp \
+    src/qt/test/uritests.cpp \
+    src/qt/test/paymentservertests.cpp
+  HEADERS += src/qt/test/uritests.h \
+    src/qt/test/paymentservertests.h
+
+  DEPENDPATH += src/qt/test
+  QT += testlib
+  TARGET = bitcoin-qt_test
+  DEFINES += BITCOIN_QT_TEST
   macx: CONFIG -= app_bundle
 }
 
@@ -404,7 +414,7 @@ macx:QMAKE_INFO_PLIST = share/qt/Info.plist
 # Set libraries and includes at end, to use platform-defined defaults if not overridden
 INCLUDEPATH += $$BOOST_INCLUDE_PATH $$BDB_INCLUDE_PATH $$OPENSSL_INCLUDE_PATH $$QRENCODE_INCLUDE_PATH
 LIBS += $$join(BOOST_LIB_PATH,,-L,) $$join(BDB_LIB_PATH,,-L,) $$join(OPENSSL_LIB_PATH,,-L,) $$join(QRENCODE_LIB_PATH,,-L,)
-LIBS += -lssl -lcrypto -ldb_cxx$$BDB_LIB_SUFFIX
+LIBS += -lssl -lcrypto -ldb_cxx$$BDB_LIB_SUFFIX -lprotobuf
 # -lgdi32 has to happen after -lcrypto (see  #681)
 win32:LIBS += -lws2_32 -lshlwapi -lmswsock -lole32 -loleaut32 -luuid -lgdi32
 LIBS += -lboost_system$$BOOST_LIB_SUFFIX -lboost_filesystem$$BOOST_LIB_SUFFIX -lboost_program_options$$BOOST_LIB_SUFFIX -lboost_thread$$BOOST_THREAD_LIB_SUFFIX

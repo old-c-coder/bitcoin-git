@@ -93,7 +93,11 @@ void SendCoinsDialog::on_sendButton_clicked()
     QStringList formatted;
     foreach(const SendCoinsRecipient &rcp, recipients)
     {
-        formatted.append(tr("<b>%1</b> to %2 (%3)").arg(BitcoinUnits::formatWithUnit(BitcoinUnits::BTC, rcp.amount), Qt::escape(rcp.label), rcp.address));
+        QString amount = BitcoinUnits::formatWithUnit(BitcoinUnits::BTC, rcp.amount);
+        QString address = rcp.address;
+        QString to = Qt::escape(rcp.label);
+
+        formatted.append(tr("<b>%1</b> to %2 (%3)").arg(amount, to, address));
     }
 
     fNewRecipientAllowed = false;
@@ -267,6 +271,12 @@ void SendCoinsDialog::setAddress(const QString &address)
 
 void SendCoinsDialog::pasteEntry(const SendCoinsRecipient &rv)
 {
+    if(!rv.error.isEmpty()) {
+        QMessageBox::warning(this, tr("Send Coins"), rv.error,
+                             QMessageBox::Ok, QMessageBox::Ok);
+        return;
+    }
+
     if(!fNewRecipientAllowed)
         return;
 
@@ -288,20 +298,21 @@ void SendCoinsDialog::pasteEntry(const SendCoinsRecipient &rv)
     entry->setValue(rv);
 }
 
-bool SendCoinsDialog::handleURI(const QString &uri)
+bool SendCoinsDialog::handlePaymentRequest(const SendCoinsRecipient &rv)
 {
-    SendCoinsRecipient rv;
-    // URI has to be valid
-    if (GUIUtil::parseBitcoinURI(uri, &rv))
+    if (rv.paymentRequest.IsInitialized())
+    {
+        pasteEntry(rv);
+    }
+    else
     {
         CBitcoinAddress address(rv.address.toStdString());
         if (!address.IsValid())
             return false;
         pasteEntry(rv);
-        return true;
     }
 
-    return false;
+    return true;
 }
 
 void SendCoinsDialog::setBalance(qint64 balance, qint64 unconfirmedBalance, qint64 immatureBalance)

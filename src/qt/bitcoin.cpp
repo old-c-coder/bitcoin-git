@@ -119,8 +119,8 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
 
     // Do this early as we don't want to bother initializing if we are just calling IPC
-    // ... but do it after creating app, so QCoreApplication::arguments is initialized:
-    if (PaymentServer::ipcSendCommandLine())
+    PaymentServer::LoadRootCAs();
+    if (PaymentServer::ipcSendCommandLine(argc, argv))
         exit(0);
     PaymentServer* paymentServer = new PaymentServer(&app);
 
@@ -248,8 +248,13 @@ int main(int argc, char *argv[])
                 }
 
                 // Now that initialization/startup is done, process any command-line
-                // bitcoin: URIs
-                QObject::connect(paymentServer, SIGNAL(receivedURI(QString)), &window, SLOT(handleURI(QString)));
+                // bitcoin: URIs or payment requests:
+                QObject::connect(paymentServer, SIGNAL(receivedPaymentRequest(SendCoinsRecipient)),
+                                 &window, SLOT(handlePaymentRequest(SendCoinsRecipient)));
+                QObject::connect(&walletModel, SIGNAL(coinsSent(CWallet*,SendCoinsRecipient,QByteArray)),
+                                 paymentServer, SLOT(fetchPaymentACK(CWallet*,const SendCoinsRecipient&,QByteArray)));
+                QObject::connect(paymentServer, SIGNAL(receivedPaymentACK(QString)),
+                                 &window, SLOT(showPaymentACK(QString)));
                 QTimer::singleShot(100, paymentServer, SLOT(uiReady()));
 
                 app.exec();
