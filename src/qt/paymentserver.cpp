@@ -2,11 +2,6 @@
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "paymentserver.h"
-#include "guiconstants.h"
-#include "ui_interface.h"
-#include "util.h"
-
 #include <QApplication>
 #include <QByteArray>
 #include <QCoreApplication>
@@ -18,6 +13,14 @@
 #include <QLocalSocket>
 #include <QStringList>
 #include <QUrl>
+
+#include "base58.h"
+#include "guiconstants.h"
+#include "guiutil.h"
+#include "paymentserver.h"
+#include "ui_interface.h"
+#include "util.h"
+#include "walletmodel.h"
 
 using namespace boost;
 
@@ -55,16 +58,26 @@ static QStringList savedPaymentRequests;
 // and the items in savedPaymentRequest will be handled
 // when uiReady() is called.
 //
-bool PaymentServer::ipcSendCommandLine()
+bool PaymentServer::ipcSendCommandLine(int argc, char* argv[])
 {
     bool fResult = false;
 
-    const QStringList& args = QCoreApplication::arguments();
-    for (int i = 1; i < args.size(); i++)
+    for (int i = 1; i < argc; i++)
     {
-        if (!args[i].startsWith(BITCOIN_IPC_PREFIX, Qt::CaseInsensitive))
+        QString arg(argv[i]);
+        if (!arg.startsWith(BITCOIN_IPC_PREFIX, Qt::CaseInsensitive))
             continue;
-        savedPaymentRequests.append(args[i]);
+        savedPaymentRequests.append(arg);
+        SendCoinsRecipient r;
+        if (GUIUtil::parseBitcoinURI(arg, &r))
+        {
+            CBitcoinAddress address(r.address.toStdString());
+            if (address.IsValid(true))
+            { // get a testnet URI: want to run as -testnet
+                mapArgs["-testnet"] = std::string("1");
+                fTestNet = true;
+            }
+        }
     }
 
     foreach (const QString& arg, savedPaymentRequests)

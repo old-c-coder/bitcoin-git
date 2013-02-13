@@ -45,7 +45,7 @@ public:
     // Returns true if there were URIs on the command line
     // which were successfully sent to an already-running
     // process.
-    static bool ipcSendCommandLine();
+    static bool ipcSendCommandLine(int argc, char *argv[]);
 
     PaymentServer(QApplication* parent);
 
