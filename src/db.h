@@ -8,6 +8,7 @@
 #include "main.h"
 
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -268,34 +269,9 @@ protected:
     }
 
 public:
-    bool TxnBegin()
-    {
-        if (!pdb || activeTxn)
-            return false;
-        DbTxn* ptxn = bitdb.TxnBegin();
-        if (!ptxn)
-            return false;
-        activeTxn = ptxn;
-        return true;
-    }
-
-    bool TxnCommit()
-    {
-        if (!pdb || !activeTxn)
-            return false;
-        int ret = activeTxn->commit(0);
-        activeTxn = NULL;
-        return (ret == 0);
-    }
-
-    bool TxnAbort()
-    {
-        if (!pdb || !activeTxn)
-            return false;
-        int ret = activeTxn->abort();
-        activeTxn = NULL;
-        return (ret == 0);
-    }
+    virtual bool TxnBegin();
+    virtual bool TxnCommit();
+    virtual bool TxnAbort();
 
     bool ReadVersion(int& nVersion)
     {
@@ -325,7 +301,11 @@ public:
 private:
     CTxDB(const CTxDB&);
     void operator=(const CTxDB&);
+    std::set<uint256> txTouched;
 public:
+    virtual bool TxnBegin();
+    virtual bool TxnCommit();
+    virtual bool TxnAbort();
     bool ReadTxIndex(uint256 hash, CTxIndex& txindex);
     bool UpdateTxIndex(uint256 hash, const CTxIndex& txindex);
     bool AddTxIndex(const CTransaction& tx, const CDiskTxPos& pos, int nHeight);

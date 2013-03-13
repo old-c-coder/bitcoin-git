@@ -425,6 +425,35 @@ bool CDB::Rewrite(const string& strFile, const char* pszSkip)
     return false;
 }
 
+bool CDB::TxnBegin()
+{
+    if (!pdb || activeTxn)
+        return false;
+    DbTxn* ptxn = bitdb.TxnBegin();
+    if (!ptxn)
+        return false;
+    activeTxn = ptxn;
+    return true;
+}
+
+bool CDB::TxnCommit()
+{
+    if (!pdb || !activeTxn)
+        return false;
+    int ret = activeTxn->commit(0);
+    activeTxn = NULL;
+    return (ret == 0);
+}
+
+bool CDB::TxnAbort()
+{
+    if (!pdb || !activeTxn)
+        return false;
+    int ret = activeTxn->abort();
+    activeTxn = NULL;
+    return (ret == 0);
+}
+
 
 void CDBEnv::Flush(bool fShutdown)
 {
@@ -481,8 +510,41 @@ void CDBEnv::Flush(bool fShutdown)
 // CTxDB
 //
 
+bool CTxDB::TxnBegin()
+{
+    bool fResult = CDB::TxnBegin();
+    return fResult;
+}
+
+bool CTxDB::TxnCommit()
+{
+    bool fResult = CDB::TxnCommit();
+    if (txTouched.size() > 0)
+    {
+        DB_LOCK_STAT* stats;
+        bitdb.dbenv.lock_stat(&stats, DB_STAT_CLEAR);
+        printf("CTxDB::TxnCommit : %u locks, %u transactions touched\n", stats->st_maxnlocks, txTouched.size());
+        txTouched.clear();
+    }
+    return fResult;
+}
+
+bool CTxDB::TxnAbort()
+{
+    bool fResult = CDB::TxnAbort();
+    if (txTouched.size() > 0)
+    {
+        DB_LOCK_STAT* stats;
+        bitdb.dbenv.lock_stat(&stats, DB_STAT_CLEAR);
+        printf("CTxDB::TxnAbort : %u locks, %u transactions touched\n", stats->st_maxnlocks, txTouched.size());
+        txTouched.clear();
+    }
+    return fResult;
+}
+
 bool CTxDB::ReadTxIndex(uint256 hash, CTxIndex& txindex)
 {
+    txTouched.insert(hash);
     assert(!fClient);
     txindex.SetNull();
     return Read(make_pair(string("tx"), hash), txindex);
@@ -490,6 +552,7 @@ bool CTxDB::ReadTxIndex(uint256 hash, CTxIndex& txindex)
 
 bool CTxDB::UpdateTxIndex(uint256 hash, const CTxIndex& txindex)
 {
+    txTouched.insert(hash);
     assert(!fClient);
     return Write(make_pair(string("tx"), hash), txindex);
 }
@@ -500,6 +563,7 @@ bool CTxDB::AddTxIndex(const CTransaction& tx, const CDiskTxPos& pos, int nHeigh
 
     // Add to tx index
     uint256 hash = tx.GetHash();
+    txTouched.insert(hash);
     CTxIndex txindex(pos, tx.vout.size());
     return Write(make_pair(string("tx"), hash), txindex);
 }
@@ -508,18 +572,21 @@ bool CTxDB::EraseTxIndex(const CTransaction& tx)
 {
     assert(!fClient);
     uint256 hash = tx.GetHash();
+    txTouched.insert(hash);
 
     return Erase(make_pair(string("tx"), hash));
 }
 
 bool CTxDB::ContainsTx(uint256 hash)
 {
+    txTouched.insert(hash);
     assert(!fClient);
     return Exists(make_pair(string("tx"), hash));
 }
 
 bool CTxDB::ReadDiskTx(uint256 hash, CTransaction& tx, CTxIndex& txindex)
 {
+    txTouched.insert(hash);
     assert(!fClient);
     tx.SetNull();
     if (!ReadTxIndex(hash, txindex))
@@ -529,6 +596,7 @@ bool CTxDB::ReadDiskTx(uint256 hash, CTransaction& tx, CTxIndex& txindex)
 
 bool CTxDB::ReadDiskTx(uint256 hash, CTransaction& tx)
 {
+    txTouched.insert(hash);
     CTxIndex txindex;
     return ReadDiskTx(hash, tx, txindex);
 }
