@@ -5,6 +5,7 @@
 
 #include "walletdb.h"
 #include "wallet.h"
+#include "init.h"       // in virtue of walletPath
 #include <boost/filesystem.hpp>
 
 using namespace std;
@@ -527,7 +528,8 @@ void ThreadFlushWalletDB(void* parg)
                     map<string, int>::iterator mi = bitdb.mapFileUseCount.find(strFile);
                     if (mi != bitdb.mapFileUseCount.end())
                     {
-                        printf("Flushing wallet.dat\n");
+                      //printf("Flushing wallet.dat\n");
+                        printf("Flushing %s\n", walletPath);
                         nLastFlushed = nWalletDBUpdated;
                         int64 nStart = GetTimeMillis();
 
@@ -536,7 +538,8 @@ void ThreadFlushWalletDB(void* parg)
                         bitdb.CheckpointLSN(strFile);
 
                         bitdb.mapFileUseCount.erase(mi++);
-                        printf("Flushed wallet.dat %"PRI64d"ms\n", GetTimeMillis() - nStart);
+                      //printf("Flushed wallet.dat %"PRI64d"ms\n", GetTimeMillis() - nStart);
+                        printf("Flushed %s %"PRI64d"ms\n", walletPath, GetTimeMillis() - nStart);
                     }
                 }
             }
@@ -560,7 +563,8 @@ bool BackupWallet(const CWallet& wallet, const string& strDest)
                 bitdb.mapFileUseCount.erase(wallet.strWalletFile);
 
                 // Copy wallet.dat
-                filesystem::path pathSrc = GetDataDir() / wallet.strWalletFile;
+              //filesystem::path pathSrc = GetDataDir() / wallet.strWalletFile;
+                filesystem::path pathSrc = walletPath;
                 filesystem::path pathDest(strDest);
                 if (filesystem::is_directory(pathDest))
                     pathDest /= wallet.strWalletFile;
@@ -571,10 +575,11 @@ bool BackupWallet(const CWallet& wallet, const string& strDest)
 #else
                     filesystem::copy_file(pathSrc, pathDest);
 #endif
-                    printf("copied wallet.dat to %s\n", pathDest.string().c_str());
+                  //printf("copied wallet.dat to %s\n", pathDest.string().c_str());
+                    printf("copied %s to %s\n", walletPath, pathDest.string().c_str());
                     return true;
                 } catch(const filesystem::filesystem_error &e) {
-                    printf("error copying wallet.dat to %s - %s\n", pathDest.string().c_str(), e.what());
+                    printf("error copying %s to %s - %s\n", walletPath, pathDest.string().c_str(), e.what());
                     return false;
                 }
             }

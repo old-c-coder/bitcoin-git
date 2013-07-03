@@ -26,6 +26,7 @@ using namespace std;
 using namespace boost;
 
 CWallet* pwalletMain;
+char *walletPath;   // useful for printf style messages, etc.
 CClientUIInterface uiInterface;
 
 // Used to pass flags to the Bind() function
@@ -247,6 +248,7 @@ std::string HelpMessage()
         "  -pid=<file>            " + _("Specify pid file (default: bitcoind.pid)") + "\n" +
         "  -gen                   " + _("Generate coins") + "\n" +
         "  -gen=0                 " + _("Don't generate coins") + "\n" +
+        "  -walletpath=<file>     " + _("Specify the wallet filename (default: wallet.dat)") + "\n" +
         "  -datadir=<dir>         " + _("Specify data directory") + "\n" +
         "  -dbcache=<n>           " + _("Set database cache size in megabytes (default: 25)") + "\n" +
         "  -timeout=<n>           " + _("Specify connection timeout in milliseconds (default: 5000)") + "\n" +
@@ -610,6 +612,21 @@ bool AppInit2()
 
     uiInterface.InitMessage(_("Verifying wallet..."));
 
+    boost::filesystem::path 
+        pathWalletFile(GetArg("-walletpath", "wallet.dat"));
+
+    if (!pathWalletFile.is_complete())
+        pathWalletFile = GetDataDir(false) / pathWalletFile;
+
+    walletPath = new char[ pathWalletFile.string().size() + 1 ];
+    strcpy( walletPath, pathWalletFile.string().c_str() ); 
+
+    (void)printf(
+           "wallet filename is %s, path (derived) is:\n%s\n",
+           pathWalletFile.filename().string().c_str(),
+           walletPath
+                );  
+
     if (!bitdb.Open(GetDataDir()))
     {
         string msg = strprintf(_("Error initializing wallet database environment %s!"), strDataDir.c_str());
@@ -619,23 +636,27 @@ bool AppInit2()
     if (GetBoolArg("-salvagewallet"))
     {
         // Recover readable keypairs:
-        if (!CWalletDB::Recover(bitdb, "wallet.dat", true))
+      //if (!CWalletDB::Recover(bitdb, "wallet.dat", true))
+        if (!CWalletDB::Recover(bitdb, walletPath, true))
             return false;
     }
 
-    if (filesystem::exists(GetDataDir() / "wallet.dat"))
+  //if (filesystem::exists(GetDataDir() / "wallet.dat"))
+    if (filesystem::exists(walletPath))
     {
-        CDBEnv::VerifyResult r = bitdb.Verify("wallet.dat", CWalletDB::Recover);
+      //CDBEnv::VerifyResult r = bitdb.Verify("wallet.dat", CWalletDB::Recover);
+        CDBEnv::VerifyResult r = bitdb.Verify(walletPath, CWalletDB::Recover);
         if (r == CDBEnv::RECOVER_OK)
         {
-            string msg = strprintf(_("Warning: wallet.dat corrupt, data salvaged!"
-                                     " Original wallet.dat saved as wallet.{timestamp}.bak in %s; if"
-                                     " your balance or transactions are incorrect you should"
-                                     " restore from a backup."), strDataDir.c_str());
+            string msg = strprintf(_("Warning: %s corrupt, data salvaged!"
+                                     " Original %s saved as wallet.{timestamp}.bak in %s; if"
+                                     " your balance or transactions are incorrect, you should"
+                                     " restore from a backup."), 
+                                     walletPath, walletPath, strDataDir.c_str());
             InitWarning(msg);
         }
         if (r == CDBEnv::RECOVER_FAIL)
-            return InitError(_("wallet.dat corrupt, salvage failed"));
+            return InitError(_("wallet.dat corrupt, salvage failed")); // should say %s walletPath
     }
 
     // ********************************************************* Step 6: network initialization
@@ -835,7 +856,7 @@ bool AppInit2()
             }
 
             fLoaded = true;
-        } while(false);
+        } while(false); // this always fails, so isn't it redundant? Better just { } if at all?
 
         if (!fLoaded) {
             // first suggest a reindex
@@ -903,16 +924,17 @@ bool AppInit2()
 
     nStart = GetTimeMillis();
     bool fFirstRun = true;
-    pwalletMain = new CWallet("wallet.dat");
+  //pwalletMain = new CWallet("wallet.dat");
+    pwalletMain = new CWallet(walletPath);
     DBErrors nLoadWalletRet = pwalletMain->LoadWallet(fFirstRun);
     if (nLoadWalletRet != DB_LOAD_OK)
     {
         if (nLoadWalletRet == DB_CORRUPT)
-            strErrors << _("Error loading wallet.dat: Wallet corrupted") << "\n";
+            strErrors << _("Error loading wallet.dat: Wallet corrupted") << "\n";   // again walletPath
         else if (nLoadWalletRet == DB_NONCRITICAL_ERROR)
         {
             string msg(_("Warning: error reading wallet.dat! All keys read correctly, but transaction data"
-                         " or address book entries might be missing or incorrect."));
+                         " or address book entries might be missing or incorrect."));  // ditto
             InitWarning(msg);
         }
         else if (nLoadWalletRet == DB_TOO_NEW)
@@ -924,7 +946,7 @@ bool AppInit2()
             return InitError(strErrors.str());
         }
         else
-            strErrors << _("Error loading wallet.dat") << "\n";
+            strErrors << _("Error loading wallet.dat") << "\n"; //ditto
     }
 
     if (GetBoolArg("-upgradewallet", fFirstRun))
@@ -966,7 +988,8 @@ bool AppInit2()
         pindexRescan = pindexGenesisBlock;
     else
     {
-        CWalletDB walletdb("wallet.dat");
+      //CWalletDB walletdb("wallet.dat");
+        CWalletDB walletdb(walletPath);
         CBlockLocator locator;
         if (walletdb.ReadBestBlock(locator))
             pindexRescan = locator.GetBlockIndex();
@@ -974,7 +997,8 @@ bool AppInit2()
     if (pindexBest && pindexBest != pindexRescan)
     {
         uiInterface.InitMessage(_("Rescanning..."));
-        printf("Rescanning last %i blocks (from block %i)...\n", pindexBest->nHeight - pindexRescan->nHeight, pindexRescan->nHeight);
+        printf("Rescanning last %i blocks (from block %i)...\n", 
+                pindexBest->nHeight - pindexRescan->nHeight, pindexRescan->nHeight);
         nStart = GetTimeMillis();
         pwalletMain->ScanForWalletTransactions(pindexRescan, true);
         printf(" rescan      %15"PRI64d"ms\n", GetTimeMillis() - nStart);

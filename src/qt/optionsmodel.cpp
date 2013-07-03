@@ -1,7 +1,7 @@
 #include "optionsmodel.h"
 
 #include "bitcoinunits.h"
-#include "init.h"
+#include "init.h"          // graciously gives walletPath
 #include "walletdb.h"
 #include "guiutil.h"
 
@@ -89,7 +89,9 @@ bool OptionsModel::Upgrade()
     settings.setValue("bImportFinished", true);
 
     // Move settings from old wallet.dat (if any):
-    CWalletDB walletdb("wallet.dat");
+  //CWalletDB walletdb("wallet.dat");
+    CWalletDB walletdb(walletPath);
+
 
     QList<QString> intOptions;
     intOptions << "nDisplayUnit" << "nTransactionFee";
