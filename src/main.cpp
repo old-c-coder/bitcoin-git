@@ -2620,6 +2620,7 @@ bool VerifyDB() {
     CBlockIndex* pindexState = pindexBest;
     CBlockIndex* pindexFailure = NULL;
     int nGoodTransactions = 0;
+    int ncount = 0;
     CValidationState state;
     for (CBlockIndex* pindex = pindexBest; pindex && pindex->pprev; pindex = pindex->pprev)
     {
@@ -2653,6 +2654,17 @@ bool VerifyDB() {
             } else
                 nGoodTransactions += block.vtx.size();
         }
+        ++ncount;
+        if( !(ncount % 10) )
+            {
+            (void)printf( "." );
+            // splash should indicate life somehow, perhaps something like
+            if( !((ncount / 10) % 2) )
+                uiInterface.InitMessage(_("Verifying blocks......"));
+            else
+                uiInterface.InitMessage(_("verifying Blocks...   "));
+            }
+
     }
     if (pindexFailure)
         return error("VerifyDB() : *** coin database inconsistencies found (last %i blocks, %i good transactions before that)\n", pindexBest->nHeight - pindexFailure->nHeight + 1, nGoodTransactions);

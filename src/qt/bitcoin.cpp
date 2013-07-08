@@ -197,7 +197,11 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+#if defined(WIN32)
+    QSplashScreen splash(QPixmap(":/images/splash"), Qt::WindowStaysOnTopHint);
+#else
     QSplashScreen splash(QPixmap(":/images/splash"), 0);
+#endif
     if (GetBoolArg("-splash", true) && !GetBoolArg("-min"))
     {
         splash.show();
