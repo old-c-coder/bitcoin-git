@@ -2655,17 +2655,36 @@ bool VerifyDB() {
                 nGoodTransactions += block.vtx.size();
         }
         ++ncount;
+#if defined(QT_GUI)
+        // splash should indicate life somehow, perhaps something like
+      //switch( (ncount / 2) % 4)
+        switch( ncount % 4 )
+            {
+            case 0:
+                uiInterface.InitMessage(_("Verifying blocks  |"));
+                break;
+            case 1:
+                uiInterface.InitMessage(_("Verifying blocks  /"));
+                break;
+            case 2:
+              //uiInterface.InitMessage(_("Verifying  -"));
+                uiInterface.InitMessage(_("Verifying blocks  \u2014"));
+                break;
+            case 3:
+                uiInterface.InitMessage(_("Verifying blocks  \\"));
+                break;
+            }
+#endif
+#if !defined(QT_GUI)
         if( !(ncount % 10) )
             {
             (void)printf( "." );
-            // splash should indicate life somehow, perhaps something like
-            if( !((ncount / 10) % 2) )
-                uiInterface.InitMessage(_("Verifying blocks......"));
-            else
-                uiInterface.InitMessage(_("verifying Blocks...   "));
             }
-
+#endif
     }
+#if !defined(QT_GUI)
+    (void)printf( "\n" );
+#endif
     if (pindexFailure)
         return error("VerifyDB() : *** coin database inconsistencies found (last %i blocks, %i good transactions before that)\n", pindexBest->nHeight - pindexFailure->nHeight + 1, nGoodTransactions);
 
